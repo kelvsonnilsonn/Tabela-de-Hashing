@@ -90,16 +90,6 @@ void criarIndice(FILE* arq, No* tabelaHashing[]) {
     }
 }
 
-void desalocarIndice(No* tabelaHashing[]) {
-    for (int i = 0; i < N; i++) {
-        No* atual = tabelaHashing[i];
-        while (atual != NULL) {
-            No* temp = atual;
-            atual = atual->prox;
-            free(temp);
-        }
-    }
-}
 
 int hashing(char placa[]) {
     int n1 = 0, n2 = 0;
@@ -153,29 +143,6 @@ void inserirTabelaHash(No* tabelaHashing[], char placa[], int posicao) {
     }
 }
 
-void removerTabelaHash(No* tabelaHashing[], char placa[], int posTabela) {
-    int indice = hashing(placa);
-    No* atual = tabelaHashing[indice];
-
-    while (atual != NULL && strcmp(atual->placa, placa) != 0) {
-        atual = atual->prox;
-    }
-
-    if (atual != NULL) {
-        if (atual->ant != NULL) {
-            atual->ant->prox = atual->prox;
-        } else {
-            tabelaHashing[indice] = atual->prox;
-        }
-
-        if (atual->prox != NULL) {
-            atual->prox->ant = atual->ant;
-        }
-
-        free(atual);
-    }
-}
-
 void exibirOpcoes() {
     printf("Opções \n");
     printf("1 - Cadastrar um carro \n");
@@ -226,31 +193,6 @@ int buscar(No* tabelaHashing[], char placa[]) {
     return -1;
 }
 
-void consultar(FILE* arq, No* tabelaHashing[]) {
-    char placa[8];
-    printf("Digite a placa do carro: ");
-    scanf("%s", placa);
-
-    int pos = buscar(tabelaHashing, placa);
-    if (pos == -1) {
-        printf("Carro não encontrado!\n");
-        return;
-    }
-
-    CARRO carro;
-    fseek(arq, pos * sizeof(CARRO), SEEK_SET);
-    fread(&carro, sizeof(CARRO), 1, arq);
-
-    if (carro.status == 1) {
-        printf("Placa: %s\n", carro.placa);
-        printf("Marca: %s\n", carro.marca);
-        printf("Modelo: %s\n", carro.modelo);
-        printf("Cor: %s\n", carro.cor);
-    } else {
-        printf("Este carro foi removido.\n");
-    }
-}
-
 
 void exibirCadastro(FILE* arq) {
     /* Exibe todos os registros de carros ATIVOS constantes no arquivo. */
@@ -264,19 +206,6 @@ void exibirCadastro(FILE* arq) {
             printf("Cor: %s\n\n", carro.cor);
         }
     }
-}
-
-FILE* prepararArquivo(char nome[]) {
-    /* Tenta abrir o arquivo para leitura e gravação.
-       Caso não consiga abrir o arquivo, tenta criá-lo para leitura e gravação. */
-    FILE* arq = fopen(nome, "r+b");
-    if (arq == NULL) {
-        arq = fopen(nome, "w+b");
-        if (arq == NULL) {
-            return NULL;  // Erro ao criar o arquivo.
-        }
-    }
-    return arq;
 }
 
 void liberarArquivo(FILE* arq) {
@@ -303,10 +232,8 @@ void liberarArquivo(FILE* arq) {
     fclose(arq);
     fclose(arqNovo);
 
-    // Remover o arquivo antigo e renomear o arquivo novo.
     remove("carros.dat");
     rename("carros_temp.dat", "carros.dat");
-    arq = fopen("carros.dat", "r+b");
 }
 
 void desalocarIndice(No* tabelaHashing[]) {
@@ -321,68 +248,26 @@ void desalocarIndice(No* tabelaHashing[]) {
     }
 }
 
-int buscar(No* tabelaHashing[], char placa[]) {
-    /* Procurar na tabela de hashing a placa desejada e retornar a posição da placa no arquivo. */
-    int indice = hashing(placa);
-    No* atual = tabelaHashing[indice];
-    
-    while (atual != NULL) {
-        if (strcmp(atual->placa, placa) == 0) {
-            return atual->posicao;  // Retorna a posição no arquivo.
-        }
-        atual = atual->prox;
-    }
-    return -1;  // Placa não encontrada.
-}
-
 void removerTabelaHash(No* tabelaHashing[], char placa[], int posTabela) {
     /* Remover da tabela de hashing o nó que contém a placa passada como parâmetro. 
        Recebe como parâmetro também a posição na tabela onde a chave se encontra. */
     int indice = hashing(placa);
     No* atual = tabelaHashing[indice];
-    
+
     while (atual != NULL) {
         if (strcmp(atual->placa, placa) == 0 && atual->posicao == posTabela) {
             if (atual->ant != NULL) {
                 atual->ant->prox = atual->prox;
             } else {
-                tabelaHashing[indice] = atual->prox;  // Se for o primeiro nó.
+                tabelaHashing[indice] = atual->prox;
             }
             if (atual->prox != NULL) {
                 atual->prox->ant = atual->ant;
             }
             free(atual);
-            break;
+            return;
         }
         atual = atual->prox;
-    }
-}
-
-void cadastrar(FILE* arq, No* tabelaHashing[]) {
-    /* Cadastrar o registro do carro no arquivo e inserir a chave (placa) na tabela de hashing. */
-    CARRO carro;
-    printf("Informe a placa do carro (AAA-1234): ");
-    scanf("%s", carro.placa);
-    fflush(stdin);
-
-    int pos = buscar(tabelaHashing, carro.placa);
-    if (pos != -1) {
-        printf("Carro já cadastrado!\n");
-    } else {
-        printf("Informe a marca do carro: ");
-        scanf("%s", carro.marca);
-        printf("Informe o modelo do carro: ");
-        scanf("%s", carro.modelo);
-        printf("Informe a cor do carro: ");
-        scanf("%s", carro.cor);
-        carro.status = 1;  // Carro ativo.
-
-        fseek(arq, 0, SEEK_END);
-        pos = ftell(arq) / sizeof(CARRO);  // Posição onde o carro será gravado no arquivo.
-        fwrite(&carro, sizeof(CARRO), 1, arq);
-
-        // Inserir na tabela de hashing.
-        inserirTabelaHash(tabelaHashing, carro.placa, pos);
     }
 }
 
@@ -403,45 +288,6 @@ void consultar(FILE* arq, No* tabelaHashing[]) {
             printf("Marca: %s\n", carro.marca);
             printf("Modelo: %s\n", carro.modelo);
             printf("Cor: %s\n", carro.cor);
-        } else {
-            printf("Carro removido.\n");
-        }
-    }
-}
-
-void alterar(FILE* arq, No* tabelaHashing[]) {
-    /* Alterar o registro do carro no arquivo. */
-    char placa[8];
-    printf("Informe a placa do carro a ser alterado: ");
-    scanf("%s", placa);
-    int pos = buscar(tabelaHashing, placa);
-    if (pos == -1) {
-        printf("Carro não encontrado.\n");
-    } else {
-        fseek(arq, pos * sizeof(CARRO), SEEK_SET);
-        CARRO carro;
-        fread(&carro, sizeof(CARRO), 1, arq);
-        if (carro.status == 1) {
-            printf("Dados do carro:\n");
-            printf("Placa: %s\n", carro.placa);
-            printf("Marca: %s\n", carro.marca);
-            printf("Modelo: %s\n", carro.modelo);
-            printf("Cor: %s\n", carro.cor);
-            printf("Quais dados deseja alterar? (1 - Marca, 2 - Modelo, 3 - Cor): ");
-            int opcao;
-            scanf("%d", &opcao);
-            if (opcao == 1) {
-                printf("Informe a nova marca: ");
-                scanf("%s", carro.marca);
-            } else if (opcao == 2) {
-                printf("Informe o novo modelo: ");
-                scanf("%s", carro.modelo);
-            } else if (opcao == 3) {
-                printf("Informe a nova cor: ");
-                scanf("%s", carro.cor);
-            }
-            fseek(arq, pos * sizeof(CARRO), SEEK_SET);
-            fwrite(&carro, sizeof(CARRO), 1, arq);
         } else {
             printf("Carro removido.\n");
         }
@@ -547,30 +393,4 @@ void remover(FILE* arq, No* tabelaHashing[]) {
             printf("Este carro já foi removido.\n");
         }
     }
-}
-
-int main() {
-    FILE* arq = prepararArquivo("carros.dat");
-    if (arq == NULL) {
-        printf("Erro ao abrir o arquivo.\n");
-        return 1;
-    }
-
-    // Inicializar a tabela de hashing.
-    No* tabelaHashing[N];
-    for (int i = 0; i < N; i++) {
-        tabelaHashing[i] = NULL;
-    }
-
-    // Exemplo de uso do menu.
-    menu(arq, tabelaHashing);
-
-    // Desalocar a tabela de hashing.
-    desalocarIndice(tabelaHashing);
-
-    // Liberar o arquivo.
-    liberarArquivo(arq);
-    
-    fclose(arq);
-    return 0;
 }
